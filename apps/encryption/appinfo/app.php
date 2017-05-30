@@ -31,4 +31,6 @@ $app = new Application([], $encryptionSystemReady);
 if ($encryptionSystemReady) {
 	$app->registerEncryptionModule();
 	$app->registerHooks();
+	$app->registerSettings();
+	$app->setUp();
 }
