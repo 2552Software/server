@@ -41,6 +41,8 @@ use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\BackgroundJob\IJobList;
 use OCP\Files\Config\IUserMountCache;
+use OCP\Encryption\IEncryptionModule;
+use OCP\Encryption\IManager;
 use OCP\IConfig;
 use OCP\IGroupManager;
 use OCP\IL10N;
@@ -98,8 +100,13 @@ class UsersController extends Controller {
 	private $keyManager;
 	/** @var IJobList */
 	private $jobList;
+
 	/** @var IUserMountCache */
 	private $userMountCache;
+
+	/** @var IManager */
+	private $encryptionManager;
+
 
 	/**
 	 * @param string $appName
@@ -123,6 +130,7 @@ class UsersController extends Controller {
 	 * @param Manager $keyManager
 	 * @param IJobList $jobList
 	 * @param IUserMountCache $userMountCache
+	 * @param IManager $encryptionManager
 	 */
 	public function __construct($appName,
 								IRequest $request,
@@ -144,7 +152,8 @@ class UsersController extends Controller {
 								ICrypto $crypto,
 								Manager $keyManager,
 								IJobList $jobList,
-								IUserMountCache $userMountCache) {
+								IUserMountCache $userMountCache,
+								IManager $encryptionManager) {
 		parent::__construct($appName, $request);
 		$this->userManager = $userManager;
 		$this->groupManager = $groupManager;
@@ -164,6 +173,7 @@ class UsersController extends Controller {
 		$this->keyManager = $keyManager;
 		$this->jobList = $jobList;
 		$this->userMountCache = $userMountCache;
+		$this->encryptionManager = $encryptionManager;
 
 		// check for encryption state - TODO see formatUserForIndex
 		$this->isEncryptionAppEnabled = $appManager->isEnabledForUser('encryption');
@@ -198,6 +208,17 @@ class UsersController extends Controller {
 				if ($recoveryModeEnabled) {
 					// user also has recovery mode enabled
 					$restorePossible = true;
+				}
+			} else {
+				$modules = $this->encryptionManager->getEncryptionModules();
+				$restorePossible = true;
+				foreach ($modules as $id => $module) {
+					/* @var IEncryptionModule $instance */
+					$instance = call_user_func($module['callback']);
+					if ($instance->needDetailedAccessList()) {
+						$restorePossible = false;
+						break;
+					}
 				}
 			}
 		} else {
